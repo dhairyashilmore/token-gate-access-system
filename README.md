@@ -25,15 +25,6 @@ A full-stack web application implementing user authentication using JWT tokens. 
 - Client list fetched from database
 - Logout functionality clears session
 
-## 📦 Installation
-
-### Backend
-```bash
-cd server
-npm install
-npm run dev
-
-
 ## How can I deploy this project?
 
 Simply open  https://preview--token-gate-access-system.lovable.app/

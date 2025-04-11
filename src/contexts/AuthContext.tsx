@@ -1,5 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { mongoClient } from "@/utils/mongodb";
 
 // Types for our authentication
 interface User {
@@ -33,9 +35,6 @@ interface AuthContextType {
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API URL - Replace this with your actual MongoDB backend URL
-const API_URL = "http://localhost:5000/api"; // Example backend URL
-
 // Provider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -60,24 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // In a real implementation, this would be an API call to validate the token
-      // and return the user data
-      const response = await fetch(`${API_URL}/users/profile`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        setToken(authToken);
-      } else {
-        // If token is invalid, clear storage
-        localStorage.removeItem("token");
-        setUser(null);
-        setToken(null);
-      }
+      const userData = await mongoClient.users.getProfile(authToken);
+      setUser(userData);
+      setToken(authToken);
     } catch (error) {
       console.error("Failed to fetch user data:", error);
       localStorage.removeItem("token");
@@ -93,43 +77,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // This would be replaced with an actual API call to your MongoDB backend
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, password })
-      });
+      const response = await mongoClient.users.login(email, password);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        toast({
-          title: "Login failed",
-          description: data.message || "Invalid email or password",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      setUser(data.user);
-      setToken(data.token);
+      setUser(response.user);
+      setToken(response.token);
       
       // Store token in localStorage
-      localStorage.setItem("token", data.token);
+      localStorage.setItem("token", response.token);
       
       toast({
         title: "Login successful",
-        description: `Welcome back, ${data.user.name}!`
+        description: `Welcome back, ${response.user.name}!`
       });
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
       toast({
         title: "Login failed",
-        description: "An unexpected error occurred",
+        description: error?.message || "Invalid email or password",
         variant: "destructive"
       });
       return false;
@@ -143,31 +109,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // This would be replaced with an actual API call to your MongoDB backend
-      const response = await fetch(`${API_URL}/auth/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ name, email, password })
-      });
+      const response = await mongoClient.users.signup(name, email, password);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        toast({
-          title: "Signup failed",
-          description: data.message || "Email already in use",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      setUser(data.user);
-      setToken(data.token);
+      setUser(response.user);
+      setToken(response.token);
       
       // Store token in localStorage
-      localStorage.setItem("token", data.token);
+      localStorage.setItem("token", response.token);
       
       toast({
         title: "Account created",
@@ -175,11 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Signup error:", error);
       toast({
         title: "Signup failed",
-        description: "An unexpected error occurred",
+        description: error?.message || "An unexpected error occurred",
         variant: "destructive"
       });
       return false;
@@ -202,29 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      // This would be replaced with an actual API call to your MongoDB backend
-      const response = await fetch(`${API_URL}/users/update`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(userData)
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        toast({
-          title: "Update failed",
-          description: data.message || "Failed to update profile",
-          variant: "destructive"
-        });
-        return false;
-      }
+      const updatedUser = await mongoClient.users.updateProfile(token, userData);
       
       // Update user data in state
-      setUser(prev => prev ? { ...prev, ...data.user } : null);
+      setUser(prev => prev ? { ...prev, ...updatedUser } : null);
       
       toast({
         title: "Profile updated",
@@ -259,50 +188,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // For demo purposes, we'll use mock data instead of an actual API call
-      // In a real app, you'd fetch from your API
-      // const response = await fetch(`${API_URL}/clients`, {
-      //   headers: {
-      //     Authorization: `Bearer ${token}`
-      //   }
-      // });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Mock client data
-      const mockClients: Client[] = [
-        { 
-          id: "cl-001", 
-          name: "John Smith", 
-          email: "john.smith@example.com", 
-          company: "Acme Inc.", 
-          status: "active" 
-        },
-        { 
-          id: "cl-002", 
-          name: "Sarah Johnson", 
-          email: "sarah.j@company.co", 
-          company: "Tech Solutions", 
-          status: "active" 
-        },
-        { 
-          id: "cl-003", 
-          name: "Michael Brown", 
-          email: "m.brown@consultants.org", 
-          company: "Global Consulting", 
-          status: "inactive" 
-        },
-        { 
-          id: "cl-004", 
-          name: "Emma Wilson", 
-          email: "emma@wilsondesign.com", 
-          company: "Wilson Design", 
-          status: "active" 
-        }
-      ];
-      
-      setClients(mockClients);
+      const clientData = await mongoClient.clients.getAll(token);
+      setClients(clientData);
       
       return true;
     } catch (error) {
@@ -332,25 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // For demo purposes, we'll use mock data instead of an actual API call
-      // In a real app, you'd post to your API
-      // const response = await fetch(`${API_URL}/clients`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     Authorization: `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify(clientData)
-      // });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create a new client with a generated ID
-      const newClient: Client = {
-        ...clientData,
-        id: `cl-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
-      };
+      const newClient = await mongoClient.clients.add(token, clientData);
       
       // Add to the clients list
       setClients(prev => [...prev, newClient]);

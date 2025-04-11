@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 
@@ -9,15 +8,26 @@ interface User {
   name: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  company: string;
+  status: "active" | "inactive";
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  clients: Client[];
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => Promise<boolean>;
+  fetchClients: () => Promise<boolean>;
+  addClient: (clientData: Omit<Client, "id">) => Promise<boolean>;
 }
 
 // Create the context
@@ -31,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]);
 
   // On mount, check local storage for existing token
   useEffect(() => {
@@ -234,10 +245,140 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Fetch clients function
+  const fetchClients = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (!token) {
+        toast({
+          title: "Failed to load clients",
+          description: "You must be logged in to view clients",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // For demo purposes, we'll use mock data instead of an actual API call
+      // In a real app, you'd fetch from your API
+      // const response = await fetch(`${API_URL}/clients`, {
+      //   headers: {
+      //     Authorization: `Bearer ${token}`
+      //   }
+      // });
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Mock client data
+      const mockClients: Client[] = [
+        { 
+          id: "cl-001", 
+          name: "John Smith", 
+          email: "john.smith@example.com", 
+          company: "Acme Inc.", 
+          status: "active" 
+        },
+        { 
+          id: "cl-002", 
+          name: "Sarah Johnson", 
+          email: "sarah.j@company.co", 
+          company: "Tech Solutions", 
+          status: "active" 
+        },
+        { 
+          id: "cl-003", 
+          name: "Michael Brown", 
+          email: "m.brown@consultants.org", 
+          company: "Global Consulting", 
+          status: "inactive" 
+        },
+        { 
+          id: "cl-004", 
+          name: "Emma Wilson", 
+          email: "emma@wilsondesign.com", 
+          company: "Wilson Design", 
+          status: "active" 
+        }
+      ];
+      
+      setClients(mockClients);
+      
+      return true;
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      toast({
+        title: "Failed to load clients",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Add client function
+  const addClient = async (clientData: Omit<Client, "id">) => {
+    try {
+      setIsLoading(true);
+      
+      if (!token) {
+        toast({
+          title: "Failed to add client",
+          description: "You must be logged in to add clients",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // For demo purposes, we'll use mock data instead of an actual API call
+      // In a real app, you'd post to your API
+      // const response = await fetch(`${API_URL}/clients`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`
+      //   },
+      //   body: JSON.stringify(clientData)
+      // });
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Create a new client with a generated ID
+      const newClient: Client = {
+        ...clientData,
+        id: `cl-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
+      };
+      
+      // Add to the clients list
+      setClients(prev => [...prev, newClient]);
+      
+      toast({
+        title: "Client added",
+        description: `${clientData.name} has been added successfully`
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error adding client:", error);
+      toast({
+        title: "Failed to add client",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Logout function
   const logout = () => {
     setUser(null);
     setToken(null);
+    setClients([]);
     localStorage.removeItem("token");
     toast({
       title: "Logged out",
@@ -250,10 +391,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     token,
     isAuthenticated: !!user && !!token,
     isLoading,
+    clients,
     login,
     signup,
     logout,
     updateProfile,
+    fetchClients,
+    addClient,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

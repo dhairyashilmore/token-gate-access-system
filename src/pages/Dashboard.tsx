@@ -1,19 +1,34 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Save, User, Users } from "lucide-react";
+import { Loader2, Save, User, Users, RefreshCw } from "lucide-react";
+import ClientList from "@/components/ClientList";
+import ClientForm from "@/components/ClientForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const Dashboard = () => {
-  const { user, token, updateProfile } = useAuth();
+  const { user, token, updateProfile, clients, fetchClients } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    handleFetchClients();
+  }, []);
 
   const handleUpdateProfile = async () => {
     setIsLoading(true);
@@ -22,6 +37,12 @@ const Dashboard = () => {
       setIsEditing(false);
     }
     setIsLoading(false);
+  };
+
+  const handleFetchClients = async () => {
+    setIsLoadingClients(true);
+    await fetchClients();
+    setIsLoadingClients(false);
   };
 
   return (
@@ -145,25 +166,42 @@ const Dashboard = () => {
         
         <TabsContent value="clients" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Client List</CardTitle>
-              <CardDescription>View and manage your clients</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Client List</CardTitle>
+                <CardDescription>View and manage your clients</CardDescription>
+              </div>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>Add Client</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Client</DialogTitle>
+                  </DialogHeader>
+                  <ClientForm onSuccess={() => setDialogOpen(false)} />
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <div className="p-4 bg-gray-50 border-b">
-                  <h3 className="text-center text-gray-500">Client data will be loaded from your MongoDB backend</h3>
-                </div>
-                <div className="p-4">
-                  <p className="text-center text-muted-foreground">
-                    Connect your backend to display client data here
-                  </p>
-                </div>
-              </div>
+              <ClientList clients={clients} isLoading={isLoadingClients} />
             </CardContent>
             <CardFooter>
-              <Button className="w-full" disabled>
-                Refresh Client Data
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={handleFetchClients}
+                disabled={isLoadingClients}
+              >
+                {isLoadingClients ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Refresh Client Data
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>

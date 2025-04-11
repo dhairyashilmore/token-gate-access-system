@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface FormProps {
@@ -20,6 +20,11 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [touched, setTouched] = React.useState({
+    name: false,
+    email: false,
+    password: false,
+  });
   const navigate = useNavigate();
   const { login, signup } = useAuth();
 
@@ -36,6 +41,13 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
     
     if (!email.trim()) {
       setError("Email is required");
+      return false;
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
       return false;
     }
     
@@ -88,6 +100,33 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
     setShowPassword(!showPassword);
   };
 
+  // Mark field as touched when it loses focus
+  const handleBlur = (field: keyof typeof touched) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  const getFieldError = (field: keyof typeof touched, value: string) => {
+    if (!touched[field]) return null;
+    
+    switch (field) {
+      case "name":
+        return type === "signup" && !value.trim() ? "Name is required" : null;
+      case "email":
+        if (!value.trim()) return "Email is required";
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return !emailRegex.test(value) ? "Please enter a valid email address" : null;
+      case "password":
+        if (!value.trim()) return "Password is required";
+        return value.length < 6 ? "Password must be at least 6 characters" : null;
+      default:
+        return null;
+    }
+  };
+
+  const nameError = getFieldError("name", name);
+  const emailError = getFieldError("email", email);
+  const passwordError = getFieldError("password", password);
+
   return (
     <div className="flex items-center justify-center px-4">
       <Card className="w-full max-w-md shadow-lg border-opacity-50 animate-fade-in">
@@ -118,10 +157,18 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={() => handleBlur("name")}
                   required
-                  className="auth-input"
+                  className={`auth-input ${nameError ? "border-red-400" : ""}`}
                   disabled={isSubmitting}
+                  aria-invalid={!!nameError}
                 />
+                {nameError && (
+                  <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
+                    <AlertTriangle size={12} />
+                    {nameError}
+                  </p>
+                )}
               </div>
             )}
             <div className="space-y-2">
@@ -132,10 +179,18 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
                 placeholder="example@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleBlur("email")}
                 required
-                className="auth-input"
+                className={`auth-input ${emailError ? "border-red-400" : ""}`}
                 disabled={isSubmitting}
+                aria-invalid={!!emailError}
               />
+              {emailError && (
+                <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={12} />
+                  {emailError}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -146,9 +201,11 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleBlur("password")}
                   required
-                  className="auth-input pr-10"
+                  className={`auth-input pr-10 ${passwordError ? "border-red-400" : ""}`}
                   disabled={isSubmitting}
+                  aria-invalid={!!passwordError}
                 />
                 <button
                   type="button"
@@ -159,8 +216,18 @@ const AuthForm: React.FC<FormProps> = ({ type }) => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {type === "signup" && (
-                <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters</p>
+              {passwordError ? (
+                <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={12} />
+                  {passwordError}
+                </p>
+              ) : (
+                type === "signup" && (
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <CheckCircle2 size={12} className="text-gray-400" />
+                    Password must be at least 6 characters
+                  </p>
+                )
               )}
             </div>
             <Button

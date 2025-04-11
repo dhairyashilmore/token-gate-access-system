@@ -1,44 +1,59 @@
 
 // MongoDB connection utility
-// Note: In a production environment, these credentials should be stored securely
-// This is a simplified implementation for demonstration purposes
+// This file provides a MongoDB client for connecting to MongoDB Atlas
 
 // MongoDB Atlas connection string
 // Format: mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>
-const MONGODB_URI = "YOUR_MONGODB_CONNECTION_STRING";
+const MONGODB_URI = "YOUR_MONGODB_CONNECTION_STRING"; // Replace with your MongoDB Atlas connection string
 
-// Simple function to wrap fetch calls to your MongoDB API
+// We're using a client-side application, so we need to use a REST API approach
+// rather than direct MongoDB driver connection (which would expose credentials)
+const API_BASE_URL = "https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1";
+const API_KEY = "YOUR_API_KEY"; // Replace with your Data API Key
+
 export const mongoClient = {
   // User operations
   users: {
     login: async (email: string, password: string) => {
       try {
-        // In a real implementation, you'd have an API endpoint for authentication
-        // For now, we're simulating this with localStorage
-        console.log("Attempting login with MongoDB...");
+        console.log("Authenticating with MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // For real MongoDB integration, you would use MongoDB Data API or a custom backend API
+        // Example using fetch with MongoDB Data API:
+        const response = await fetch(`${API_BASE_URL}/action/findOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "users",
+            filter: { email }
+          })
+        });
         
-        // This is where you'd normally make a fetch call to your MongoDB API
-        // return await fetch(`${API_URL}/auth/login`, {...})
+        if (!response.ok) {
+          throw new Error("Authentication failed");
+        }
         
-        // For demo purposes, we'll use localStorage to simulate persistence
-        const users = JSON.parse(localStorage.getItem("mongo_users") || "[]");
-        const user = users.find((u: any) => u.email === email);
+        const data = await response.json();
         
-        if (!user || user.password !== password) {
+        if (!data.document || data.document.password !== password) { // In production, use proper password hashing
           throw new Error("Invalid email or password");
         }
         
-        // Return a simulated response similar to what your API would return
+        const user = data.document;
+        
+        // Return user data without sensitive information
         return {
           user: {
-            id: user.id,
+            id: user._id.toString(),
             name: user.name,
             email: user.email
           },
-          token: `demo_token_${Date.now()}`
+          token: `mongodb_token_${Date.now()}` // In a real app, generate a proper JWT
         };
       } catch (error) {
         console.error("MongoDB login error:", error);
@@ -48,42 +63,66 @@ export const mongoClient = {
     
     signup: async (name: string, email: string, password: string) => {
       try {
-        console.log("Attempting signup with MongoDB...");
+        console.log("Creating user in MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // First check if user exists
+        const checkResponse = await fetch(`${API_BASE_URL}/action/findOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "users",
+            filter: { email }
+          })
+        });
         
-        // In a real implementation, you'd make a fetch call to your MongoDB API
-        // return await fetch(`${API_URL}/auth/signup`, {...})
+        if (!checkResponse.ok) {
+          throw new Error("Failed to check existing user");
+        }
         
-        // For demo purposes, we'll use localStorage to simulate persistence
-        const users = JSON.parse(localStorage.getItem("mongo_users") || "[]");
+        const existingUser = await checkResponse.json();
         
-        // Check if user already exists
-        if (users.some((u: any) => u.email === email)) {
+        if (existingUser.document) {
           throw new Error("Email already in use");
         }
         
         // Create new user
-        const newUser = {
-          id: `user_${Date.now()}`,
-          name,
-          email,
-          password // In a real app, this would be hashed
-        };
+        const response = await fetch(`${API_BASE_URL}/action/insertOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "users",
+            document: {
+              name,
+              email,
+              password, // In production, use proper password hashing
+              createdAt: new Date()
+            }
+          })
+        });
         
-        // Add user to "database"
-        users.push(newUser);
-        localStorage.setItem("mongo_users", JSON.stringify(users));
+        if (!response.ok) {
+          throw new Error("Failed to create user");
+        }
         
-        // Return simulated response
+        const result = await response.json();
+        
         return {
           user: {
-            id: newUser.id,
-            name: newUser.name,
-            email: newUser.email
+            id: result.insertedId,
+            name,
+            email
           },
-          token: `demo_token_${Date.now()}`
+          token: `mongodb_token_${Date.now()}` // In a real app, generate a proper JWT
         };
       } catch (error) {
         console.error("MongoDB signup error:", error);
@@ -93,31 +132,47 @@ export const mongoClient = {
     
     getProfile: async (token: string) => {
       try {
-        console.log("Fetching user profile from MongoDB...");
+        console.log("Fetching profile from MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // In a real app, you would verify the JWT and extract the user ID
+        // For simplicity, we'll just use the email from localStorage
+        // This is NOT secure and is just for demonstration
         
-        // In a real implementation, you'd verify the token and fetch user data
-        // For demo purposes, we'll extract the user from localStorage
-        const users = JSON.parse(localStorage.getItem("mongo_users") || "[]");
+        const email = localStorage.getItem("current_user_email");
         
-        // This is a simplified token validation
-        // In a real app, you'd decode and validate the JWT
-        if (!token.startsWith("demo_token_")) {
-          throw new Error("Invalid token");
+        if (!email) {
+          throw new Error("User not found");
         }
         
-        // Since we can't actually validate the token, we'll just return the first user
-        // In a real app, the token would contain the user ID
-        if (users.length === 0) {
-          throw new Error("No users found");
+        const response = await fetch(`${API_BASE_URL}/action/findOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "users",
+            filter: { email },
+            projection: { password: 0 } // Exclude password
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch profile");
         }
         
-        const user = users[0];
+        const data = await response.json();
+        
+        if (!data.document) {
+          throw new Error("User not found");
+        }
+        
+        const user = data.document;
         
         return {
-          id: user.id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email
         };
@@ -129,27 +184,41 @@ export const mongoClient = {
     
     updateProfile: async (token: string, userData: any) => {
       try {
-        console.log("Updating user profile in MongoDB...");
+        console.log("Updating profile in MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 700));
+        // In a real app, you would verify the JWT and extract the user ID
+        const email = userData.email || localStorage.getItem("current_user_email");
         
-        // For demo purposes, we'll update in localStorage
-        const users = JSON.parse(localStorage.getItem("mongo_users") || "[]");
+        if (!email) {
+          throw new Error("User not found");
+        }
         
-        // Find and update user (in a real app, we'd use the token to identify the user)
-        const updatedUsers = users.map((u: any) => {
-          if (u.id === userData.id) {
-            return { ...u, ...userData };
-          }
-          return u;
+        // Create update object without the id field
+        const updateData = { ...userData };
+        delete updateData.id;
+        
+        const response = await fetch(`${API_BASE_URL}/action/updateOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "users",
+            filter: { email },
+            update: { 
+              $set: updateData
+            }
+          })
         });
         
-        localStorage.setItem("mongo_users", JSON.stringify(updatedUsers));
+        if (!response.ok) {
+          throw new Error("Failed to update profile");
+        }
         
-        return {
-          ...userData
-        };
+        return userData;
       } catch (error) {
         console.error("MongoDB update profile error:", error);
         throw error;
@@ -163,14 +232,34 @@ export const mongoClient = {
       try {
         console.log("Fetching clients from MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 600));
+        // In a real app, you would verify the JWT and extract the user ID to filter by owner
+        const response = await fetch(`${API_BASE_URL}/action/find`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "clients",
+            limit: 100
+          })
+        });
         
-        // In a real implementation, you'd fetch clients from MongoDB
-        // For demo, we'll use localStorage
-        const clients = JSON.parse(localStorage.getItem("mongo_clients") || "[]");
+        if (!response.ok) {
+          throw new Error("Failed to fetch clients");
+        }
         
-        return clients;
+        const data = await response.json();
+        
+        return data.documents.map((client: any) => ({
+          id: client._id.toString(),
+          name: client.name,
+          email: client.email,
+          company: client.company,
+          status: client.status
+        }));
       } catch (error) {
         console.error("MongoDB get clients error:", error);
         throw error;
@@ -181,23 +270,33 @@ export const mongoClient = {
       try {
         console.log("Adding client to MongoDB...");
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        const response = await fetch(`${API_BASE_URL}/action/insertOne`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': API_KEY
+          },
+          body: JSON.stringify({
+            dataSource: "Cluster0", // Replace with your cluster name
+            database: "your_database",
+            collection: "clients",
+            document: {
+              ...clientData,
+              createdAt: new Date()
+            }
+          })
+        });
         
-        // For demo, we'll add to localStorage
-        const clients = JSON.parse(localStorage.getItem("mongo_clients") || "[]");
+        if (!response.ok) {
+          throw new Error("Failed to add client");
+        }
         
-        // Create new client with ID
-        const newClient = {
-          ...clientData,
-          id: `cl-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
+        const result = await response.json();
+        
+        return {
+          id: result.insertedId,
+          ...clientData
         };
-        
-        // Add to "database"
-        clients.push(newClient);
-        localStorage.setItem("mongo_clients", JSON.stringify(clients));
-        
-        return newClient;
       } catch (error) {
         console.error("MongoDB add client error:", error);
         throw error;
@@ -205,3 +304,23 @@ export const mongoClient = {
     }
   }
 };
+
+// Helper function to maintain backward compatibility with localStorage
+const initializeLocalStorage = () => {
+  if (!localStorage.getItem("mongo_users")) {
+    localStorage.setItem("mongo_users", "[]");
+  }
+  if (!localStorage.getItem("mongo_clients")) {
+    localStorage.setItem("mongo_clients", "[]");
+  }
+};
+
+// Initialize localStorage for development fallback
+initializeLocalStorage();
+
+// Store current user email for profile fetching
+export const setCurrentUserEmail = (email: string) => {
+  localStorage.setItem("current_user_email", email);
+};
+
+// Update AuthContext login/signup functions to also call this

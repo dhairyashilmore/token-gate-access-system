@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { mongoClient } from "@/utils/mongodb";
+import { mongoClient, setCurrentUserEmail } from "@/utils/mongodb";
 
 // Types for our authentication
 interface User {
@@ -79,6 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const response = await mongoClient.users.login(email, password);
       
+      // Store the email for profile fetching
+      setCurrentUserEmail(email);
+      
       setUser(response.user);
       setToken(response.token);
       
@@ -110,6 +112,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       
       const response = await mongoClient.users.signup(name, email, password);
+      
+      // Store the email for profile fetching
+      setCurrentUserEmail(email);
       
       setUser(response.user);
       setToken(response.token);
